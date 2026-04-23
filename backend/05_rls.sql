@@ -1,14 +1,15 @@
 -- TABLA: mascotas
 ALTER TABLE mascotas ENABLE ROW LEVEL SECURITY;
 
--- Admin y recepción: ven todo (política permisiva para sus roles)
+-- Admin y recepción: ven todo (política permisiva)
 DROP POLICY IF EXISTS pol_mascotas_admin ON mascotas;
 CREATE POLICY pol_mascotas_admin ON mascotas
     FOR ALL
     TO admin_role, recepcion_role
-    USING (true);
+    USING (true)
+    WITH CHECK (true);
 
--- Veterinario: solo sus mascotas asignadas
+-- Veterinario: solo sus mascotas asignadas (política restrictiva)
 DROP POLICY IF EXISTS pol_mascotas_vet ON mascotas;
 CREATE POLICY pol_mascotas_vet ON mascotas
     FOR SELECT
@@ -22,7 +23,9 @@ CREATE POLICY pol_mascotas_vet ON mascotas
         )
     );
 
+-- =============================================================
 -- TABLA: vacunas_aplicadas
+-- =============================================================
 ALTER TABLE vacunas_aplicadas ENABLE ROW LEVEL SECURITY;
 
 -- Admin: ve todo
@@ -30,11 +33,12 @@ DROP POLICY IF EXISTS pol_vacunas_admin ON vacunas_aplicadas;
 CREATE POLICY pol_vacunas_admin ON vacunas_aplicadas
     FOR ALL
     TO admin_role
-    USING (true);
+    USING (true)
+    WITH CHECK (true);
 
--- Veterinario: solo vacunas de sus mascotas
-DROP POLICY IF EXISTS pol_vacunas_vet ON vacunas_aplicadas;
-CREATE POLICY pol_vacunas_vet ON vacunas_aplicadas
+-- Veterinario: solo vacunas de sus mascotas (SELECT + INSERT)
+DROP POLICY IF EXISTS pol_vacunas_vet_select ON vacunas_aplicadas;
+CREATE POLICY pol_vacunas_vet_select ON vacunas_aplicadas
     FOR SELECT
     TO vet_role
     USING (
@@ -60,19 +64,30 @@ CREATE POLICY pol_vacunas_vet_insert ON vacunas_aplicadas
         )
     );
 
+-- Recepción: DENIEGA acceso (información médica)
+DROP POLICY IF EXISTS pol_vacunas_recepcion_deny ON vacunas_aplicadas;
+CREATE POLICY pol_vacunas_recepcion_deny ON vacunas_aplicadas
+    FOR ALL
+    TO recepcion_role
+    USING (false)
+    WITH CHECK (false);
+
+-- =============================================================
 -- TABLA: citas
+-- =============================================================
 ALTER TABLE citas ENABLE ROW LEVEL SECURITY;
 
--- Admin y recepción: ven todo
+-- Admin y recepción: ven todo y pueden insertar
 DROP POLICY IF EXISTS pol_citas_admin_recep ON citas;
 CREATE POLICY pol_citas_admin_recep ON citas
     FOR ALL
     TO admin_role, recepcion_role
-    USING (true);
+    USING (true)
+    WITH CHECK (true);
 
--- Veterinario: solo las citas donde él es el vet asignado
-DROP POLICY IF EXISTS pol_citas_vet ON citas;
-CREATE POLICY pol_citas_vet ON citas
+-- Veterinario: solo las citas donde él es el vet asignado (SELECT)
+DROP POLICY IF EXISTS pol_citas_vet_select ON citas;
+CREATE POLICY pol_citas_vet_select ON citas
     FOR SELECT
     TO vet_role
     USING (

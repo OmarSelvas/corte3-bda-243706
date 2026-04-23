@@ -2,11 +2,15 @@
 DROP ROLE IF EXISTS vet_role;
 DROP ROLE IF EXISTS recepcion_role;
 DROP ROLE IF EXISTS admin_role;
+
 -- Crear los tres roles base 
 CREATE ROLE vet_role;
 CREATE ROLE recepcion_role;
 CREATE ROLE admin_role;
+
+-- =============================================================
 -- PERMISOS POR ROL
+-- =============================================================
 
 -- vet_role 
 -- El veterinario solo necesita ver/operar sobre sus mascotas.
@@ -16,7 +20,16 @@ CREATE ROLE admin_role;
 -- Mascotas: SELECT (RLS filtra a las suyas)
 GRANT SELECT ON mascotas TO vet_role;
 
--- Citas: SELECT + INSERT (agendar citas propias vía procedure)
+-- Veterinarios: SELECT (para mostrar en el formulario de citas)
+GRANT SELECT ON veterinarios TO vet_role;
+
+-- Dueños: SELECT (para ver datos de contacto de sus mascotas)
+GRANT SELECT ON duenos TO vet_role;
+
+-- Vet_atiende_mascota: SELECT (necesario para que RLS funcione)
+GRANT SELECT ON vet_atiende_mascota TO vet_role;
+
+-- Citas: SELECT + INSERT (agendar citas propias)
 GRANT SELECT, INSERT ON citas TO vet_role;
 GRANT USAGE, SELECT ON SEQUENCE citas_id_seq TO vet_role;
 
@@ -27,19 +40,27 @@ GRANT USAGE, SELECT ON SEQUENCE vacunas_aplicadas_id_seq TO vet_role;
 -- Inventario vacunas: SELECT (necesita saber qué hay en stock)
 GRANT SELECT ON inventario_vacunas TO vet_role;
 
--- Dueños: SELECT (para ver datos de contacto de sus mascotas)
-GRANT SELECT ON duenos TO vet_role;
-
--- Vet_atiende_mascota: SELECT (necesario para que RLS funcione)
-GRANT SELECT ON vet_atiende_mascota TO vet_role;
-
 -- Vista de vacunación pendiente (sus mascotas, filtrada por RLS)
 GRANT SELECT ON v_mascotas_vacunacion_pendiente TO vet_role;
 
--- Ejecutar procedure de agendar cita
+-- Historial de movimientos: INSERT (para que los triggers funcionen)
+GRANT INSERT ON historial_movimientos TO vet_role;
+GRANT USAGE, SELECT ON SEQUENCE historial_movimientos_id_seq TO vet_role;
+
+-- Alertas: INSERT (para alertas de stock bajo generadas por triggers)
+GRANT INSERT ON alertas TO vet_role;
+GRANT USAGE, SELECT ON SEQUENCE alertas_id_seq TO vet_role;
+
+-- Ejecutar procedure de agendar cita (CRÍTICO para POST)
 GRANT EXECUTE ON PROCEDURE sp_agendar_cita(INT, INT, TIMESTAMP, TEXT, INT) TO vet_role;
 
--- Mascotas: SELECT completo (ve todas, sin filtro RLS en este rol)
+-- =============================================================
+-- recepcion_role
+-- Ve todas las mascotas y dueños. Puede agendar citas.
+-- NO puede ver vacunas aplicadas (información médica).
+-- =============================================================
+
+-- Mascotas: SELECT completo (ve todas, sin filtro RLS)
 GRANT SELECT ON mascotas TO recepcion_role;
 
 -- Dueños: SELECT completo (necesita datos de contacto)
@@ -55,17 +76,33 @@ GRANT SELECT ON v_citas_completas TO recepcion_role;
 -- Veterinarios: SELECT (para mostrar en el formulario de citas)
 GRANT SELECT ON veterinarios TO recepcion_role;
 
+-- Historial de movimientos: INSERT (para que los triggers funcionen)
+GRANT INSERT ON historial_movimientos TO recepcion_role;
+GRANT USAGE, SELECT ON SEQUENCE historial_movimientos_id_seq TO recepcion_role;
+
+-- Alertas: INSERT (para alertas de stock bajo generadas por triggers)
+GRANT INSERT ON alertas TO recepcion_role;
+GRANT USAGE, SELECT ON SEQUENCE alertas_id_seq TO recepcion_role;
+
+-- 🔴 NO GRANT en vacunas_aplicadas (información médica)
+-- 🔴 NO GRANT en v_mascotas_vacunacion_pendiente (información médica)
+
 -- Ejecutar procedure de agendar cita
 GRANT EXECUTE ON PROCEDURE sp_agendar_cita(INT, INT, TIMESTAMP, TEXT, INT) TO recepcion_role;
 
+-- =============================================================
 -- admin_role
--- Admin tiene acceso total. Es el único que puede modificar
--- inventario, asignar veterinarios a mascotas, y ver historial.
+-- Admin tiene acceso total. Puede modificar todo.
+-- =============================================================
 
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO admin_role;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO admin_role;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO admin_role;
 GRANT EXECUTE ON ALL PROCEDURES IN SCHEMA public TO admin_role;
+
+-- =============================================================
+-- CREAR USUARIOS Y ASIGNAR ROLES
+-- =============================================================
 
 -- Usuario genérico de veterinario — la app setea el vet_id real
 DROP USER IF EXISTS vet_user;

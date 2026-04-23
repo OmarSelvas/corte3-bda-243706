@@ -6,6 +6,7 @@ import { api, getSessionData } from '../../lib/api';
 export default function InventarioPage() {
   const [inventario, setInventario] = useState([]);
   const [mascotas,   setMascotas]   = useState([]);
+  const [vets,       setVets]       = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [error,      setError]      = useState(null);
   const [success,    setSuccess]    = useState(null);
@@ -13,24 +14,35 @@ export default function InventarioPage() {
   const [showForm,   setShowForm]   = useState(false);
 
   const [form, setForm] = useState({
-    mascota_id: '', vacuna_id: '', fecha_aplicacion: '', costo_cobrado: '',
+    mascota_id: '', 
+    vacuna_id: '', 
+    veterinario_id: '', 
+    fecha_aplicacion: '', 
+    costo_cobrado: '',
   });
 
   useEffect(() => {
     const s = getSessionData();
     setSession(s);
-    loadData();
+    loadData(s);
   }, []);
 
-  async function loadData() {
+  async function loadData(s) {
     setLoading(true);
     try {
-      const [inv, m] = await Promise.all([
+      const [inv, m, v] = await Promise.all([
         api.get('/api/inventario-vacunas'),
         api.get('/api/mascotas?search='),
+        api.get('/api/veterinarios'),
       ]);
       setInventario(inv.data);
       setMascotas(m.data);
+      setVets(v.data.filter(vet => vet.activo));
+      
+      // Si es vet, pre-selecciona su propio ID
+      if (s?.rol === 'vet') {
+        setForm(f => ({ ...f, veterinario_id: String(s.vetId) }));
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -42,17 +54,44 @@ export default function InventarioPage() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+
+    // Validación
+    if (!form.mascota_id || !form.vacuna_id) {
+      setError('Debes seleccionar mascota y vacuna');
+      return;
+    }
+
+    if ((session?.rol === 'admin' || session?.rol === 'recepcion') && !form.veterinario_id) {
+      setError('Debes seleccionar un veterinario');
+      return;
+    }
+
     try {
-      await api.post('/api/vacunas', {
-        mascota_id:       parseInt(form.mascota_id),
-        vacuna_id:        parseInt(form.vacuna_id),
+      const payload = {
+        mascota_id: parseInt(form.mascota_id),
+        vacuna_id: parseInt(form.vacuna_id),
         fecha_aplicacion: form.fecha_aplicacion || undefined,
-        costo_cobrado:    parseFloat(form.costo_cobrado) || undefined,
-      });
+        costo_cobrado: form.costo_cobrado ? parseFloat(form.costo_cobrado) : undefined,
+      };
+
+      // Solo envía veterinario_id si el rol lo necesita (admin/recepción)
+      if (session?.rol === 'admin' || session?.rol === 'recepcion') {
+        payload.veterinario_id = parseInt(form.veterinario_id);
+      }
+
+      console.log('[POST /api/vacunas] Enviando:', payload);
+
+      await api.post('/api/vacunas', payload);
       setSuccess('✓ Vacuna aplicada. El caché de vacunación pendiente fue invalidado automáticamente.');
       setShowForm(false);
-      setForm({ mascota_id: '', vacuna_id: '', fecha_aplicacion: '', costo_cobrado: '' });
-      await loadData();
+      setForm({ 
+        mascota_id: '', 
+        vacuna_id: '', 
+        veterinario_id: session?.rol === 'vet' ? String(session.vetId) : '', 
+        fecha_aplicacion: '', 
+        costo_cobrado: '' 
+      });
+      await loadData(session);
     } catch (err) {
       setError(err.message);
     }
@@ -63,7 +102,11 @@ export default function InventarioPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
         <div>
           <h1>Inventario de Vacunas</h1>
-          <p className="subtitle">Solo visible para administradores — aplica vacunas e invalida caché Redis</p>
+          <p className="subtitle">
+            {session?.rol === 'vet' 
+              ? '⚡ Como veterinario, las vacunas se registran a tu nombre'
+              : 'Administrador — selecciona qué veterinario aplica la vacuna'}
+          </p>
         </div>
         <button className="btn-primary" onClick={() => setShowForm(!showForm)}>
           {showForm ? 'Cancelar' : '+ Aplicar vacuna'}
@@ -96,6 +139,7 @@ export default function InventarioPage() {
                   ))}
                 </select>
               </div>
+
               <div className="field">
                 <label>Vacuna</label>
                 <select
@@ -111,6 +155,23 @@ export default function InventarioPage() {
                   ))}
                 </select>
               </div>
+
+              {(session?.rol === 'admin' || session?.rol === 'recepcion') && (
+                <div className="field">
+                  <label>Veterinario responsable</label>
+                  <select
+                    value={form.veterinario_id}
+                    onChange={e => setForm(f => ({ ...f, veterinario_id: e.target.value }))}
+                    required
+                  >
+                    <option value="">Seleccionar veterinario...</option>
+                    {vets.map(v => (
+                      <option key={v.id} value={v.id}>{v.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="field">
                 <label>Fecha de aplicación</label>
                 <input
@@ -119,6 +180,7 @@ export default function InventarioPage() {
                   onChange={e => setForm(f => ({ ...f, fecha_aplicacion: e.target.value }))}
                 />
               </div>
+
               <div className="field">
                 <label>Costo cobrado ($)</label>
                 <input

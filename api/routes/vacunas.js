@@ -32,7 +32,10 @@ router.get('/vacunacion-pendiente', async (req, res) => {
 
 router.post('/', async (req, res) => {
   try {
-    const { mascota_id, vacuna_id, fecha_aplicacion, costo_cobrado } = req.body;
+    const { mascota_id, vacuna_id, fecha_aplicacion, costo_cobrado, veterinario_id } = req.body;
+
+    console.log(`[POST /api/vacunas] Body recibido:`, req.body);
+    console.log(`[POST /api/vacunas] Role: ${req.userRole}, VetId: ${req.userVetId}`);
 
     if (!mascota_id || !vacuna_id) {
       return res.status(400).json({ 
@@ -40,7 +43,35 @@ router.post('/', async (req, res) => {
       });
     }
 
-    const vetId = req.userVetId;
+    // Determinar veterinario_id según rol
+    let finalVetId;
+
+    if (req.userRole === 'vet') {
+      // Veterinario: usa su propio ID del header
+      finalVetId = req.userVetId;
+      if (!finalVetId) {
+        return res.status(400).json({ 
+          error: 'Error: veterinario no tiene ID asignado' 
+        });
+      }
+    } else if (req.userRole === 'admin' || req.userRole === 'recepcion') {
+      // Admin/Recepción: debe proporcionar veterinario_id en el body
+      if (!veterinario_id) {
+        return res.status(400).json({ 
+          error: 'Campo obligatorio para admin/recepción: veterinario_id en body' 
+        });
+      }
+      finalVetId = parseInt(veterinario_id);
+      if (isNaN(finalVetId)) {
+        return res.status(400).json({ 
+          error: 'veterinario_id debe ser un número válido' 
+        });
+      }
+    } else {
+      return res.status(403).json({ 
+        error: 'Rol no autorizado para aplicar vacunas' 
+      });
+    }
 
     const sql = `
       INSERT INTO vacunas_aplicadas
@@ -48,11 +79,12 @@ router.post('/', async (req, res) => {
       VALUES ($1, $2, $3, $4::DATE, $5)
     `;
     
-    console.log(`[POST /api/vacunas] mascota=${mascota_id}, vacuna=${vacuna_id}`);
-    await db.query(req.userRole, vetId, sql, [
+    console.log(`[POST /api/vacunas] Insertando: mascota=${mascota_id}, vacuna=${vacuna_id}, vet=${finalVetId}`);
+    
+    await db.query(req.userRole, req.userVetId, sql, [
       parseInt(mascota_id),
       parseInt(vacuna_id),
-      vetId,
+      finalVetId,
       fecha_aplicacion || new Date().toISOString().split('T')[0],
       parseFloat(costo_cobrado) || null,
     ]);
