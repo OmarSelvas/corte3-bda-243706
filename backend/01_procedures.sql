@@ -27,6 +27,7 @@ BEGIN
     END IF;
 
     -- Verificar día de descanso 
+        v_dia_semana :=(
         CASE EXTRACT(DOW FROM p_fecha_hora)
             WHEN 0 THEN 'domingo'
             WHEN 1 THEN 'lunes'
@@ -35,7 +36,6 @@ BEGIN
             WHEN 4 THEN 'jueves'
             WHEN 5 THEN 'viernes'
             WHEN 6 THEN 'sábado'
-        END
     );
 
     IF v_dias_descanso <> '' AND
