@@ -36,6 +36,7 @@ BEGIN
             WHEN 4 THEN 'jueves'
             WHEN 5 THEN 'viernes'
             WHEN 6 THEN 'sábado'
+        END
     );
 
     IF v_dias_descanso <> '' AND

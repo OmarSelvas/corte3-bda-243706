@@ -45,7 +45,7 @@ async function query(role, vetId, sql, params = []) {
 
     if (role === 'vet' && vetId != null) {
       await client.query(
-        `SET LOCAL app.current_vet_id = $1`,
+        `SELECT set_config('app.current_vet_id', $1, true)`,
         [String(vetId)]   
       );
     }

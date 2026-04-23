@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
-const cache = require('../cache');
+const db = require('../src/db');
+const cache = require('../src/cache');
 
 router.get('/vacunacion-pendiente', async (req, res) => {
   try {
