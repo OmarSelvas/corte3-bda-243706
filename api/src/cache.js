@@ -5,11 +5,23 @@ const redis = new Redis({
   host: process.env.REDIS_HOST || 'localhost',
   port: parseInt(process.env.REDIS_PORT || '6379'),
   lazyConnect: true,
+  retryStrategy: (times) => {
+    const delay = Math.min(times * 50, 2000);
+    return delay;
+  },
+});
+
+redis.on('connect', () => {
+  console.log('[REDIS] Conectado');
 });
 
 redis.on('error', (err) => {
-  // No crashear la app si Redis no está disponible
   console.error('[REDIS] Error de conexión:', err.message);
+});
+
+// Intentar conectar
+redis.connect().catch(err => {
+  console.error('[REDIS] No se pudo conectar:', err.message);
 });
 
 const TTL_SECONDS = parseInt(process.env.CACHE_TTL || '300');

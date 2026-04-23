@@ -25,6 +25,13 @@ const pools = {
   }),
 };
 
+// Manejadores de error en pools
+Object.keys(pools).forEach(role => {
+  pools[role].on('error', (err) => {
+    console.error(`[POOL ${role}] Error:`, err.message);
+  });
+});
+
 /**
  * Ejecuta una query de forma segura en el pool del rol indicado.
  * Si el rol es 'vet', setea app.current_vet_id en la misma
@@ -37,24 +44,32 @@ const pools = {
  */
 async function query(role, vetId, sql, params = []) {
   const pool = pools[role];
-  if (!pool) throw new Error(`Rol desconocido: ${role}`);
+  if (!pool) {
+    throw new Error(`Rol desconocido: ${role}`);
+  }
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
     if (role === 'vet' && vetId != null) {
+      console.log(`[RLS] Setting app.current_vet_id = ${vetId}`);
       await client.query(
         `SELECT set_config('app.current_vet_id', $1, true)`,
         [String(vetId)]   
       );
     }
 
+    console.log(`[QUERY] Role: ${role}, SQL: ${sql.substring(0, 80)}...`);
     const result = await client.query(sql, params);
+    
     await client.query('COMMIT');
+    console.log(`[RESULT] ${result.rows.length} rows`);
+    
     return result;
   } catch (err) {
     await client.query('ROLLBACK');
+    console.error(`[DB ERROR] ${err.message}`);
     throw err;
   } finally {
     client.release();

@@ -18,7 +18,9 @@ router.get('/', async (req, res) => {
        ORDER BY m.nombre
     `;
 
+    console.log(`[GET /api/mascotas] search="${search}", role=${role}, vetId=${vetId}`);
     const result = await db.query(role, vetId, sql, [`%${search}%`]);
+    
     res.json({ data: result.rows });
   } catch (err) {
     console.error('[GET /api/mascotas]', err.message);
@@ -37,8 +39,13 @@ router.get('/:id', async (req, res) => {
         JOIN duenos d ON d.id = m.dueno_id
        WHERE m.id = $1
     `;
+    
     const result = await db.query(req.userRole, req.userVetId, sql, [mascotaId]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'No encontrada' });
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No encontrada' });
+    }
+    
     res.json({ data: result.rows[0] });
   } catch (err) {
     console.error('[GET /api/mascotas/:id]', err.message);

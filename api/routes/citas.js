@@ -13,7 +13,10 @@ router.get('/', async (req, res) => {
        ORDER BY c.fecha_hora DESC
        LIMIT 100
     `;
+    
+    console.log(`[GET /api/citas] role=${req.userRole}, vetId=${req.userVetId}`);
     const result = await db.query(req.userRole, req.userVetId, sql);
+    
     res.json({ data: result.rows });
   } catch (err) {
     console.error('[GET /api/citas]', err.message);
@@ -26,10 +29,14 @@ router.post('/', async (req, res) => {
     const { mascota_id, veterinario_id, fecha_hora, motivo } = req.body;
 
     if (!mascota_id || !veterinario_id || !fecha_hora) {
-      return res.status(400).json({ error: 'Campos obligatorios: mascota_id, veterinario_id, fecha_hora' });
+      return res.status(400).json({ 
+        error: 'Campos obligatorios: mascota_id, veterinario_id, fecha_hora' 
+      });
     }
 
     const sql = `CALL sp_agendar_cita($1, $2, $3::TIMESTAMP, $4, NULL)`;
+    
+    console.log(`[POST /api/citas] mascota=${mascota_id}, vet=${veterinario_id}`);
     await db.query(req.userRole, req.userVetId, sql, [
       parseInt(mascota_id),
       parseInt(veterinario_id),

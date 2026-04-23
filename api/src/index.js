@@ -14,6 +14,7 @@ app.use(cors({ origin: process.env.FRONTEND_URL || 'http://localhost:3000' }));
 app.use(express.json());
 app.use(authMiddleware);
 
+// Rutas
 app.use('/api/mascotas', mascotasRoutes);
 app.use('/api/citas', citasRoutes);
 app.use('/api/vacunas', vacunasRoutes);
