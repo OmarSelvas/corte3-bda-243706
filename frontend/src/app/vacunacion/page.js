@@ -16,7 +16,7 @@ export default function VacunacionPage() {
     setError(null);
     const t0 = performance.now();
     try {
-      const res = await api.get('/api/vacunacion-pendiente');
+      const res = await api.get('/api/vacunas/vacunacion-pendiente');
       const elapsed = Math.round(performance.now() - t0);
       setData(res.data);
       setSource(res.source);
